@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>용적률 비교</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif; background: #f5f5f0; display: flex; justify-content: center; padding: 32px 16px; min-height: 100vh; }
+.widget { background: #fff; border-radius: 16px; padding: 24px; width: 100%; max-width: 600px; box-shadow: 0 2px 20px rgba(0,0,0,0.08); }
+.w-title { font-size: 15px; font-weight: 500; color: #1a1a18; margin-bottom: 3px; }
+.w-sub { font-size: 12px; color: #888780; margin-bottom: 16px; }
+.controls { display: flex; gap: 12px; margin-bottom: 16px; }
+.ctrl-half { flex: 1; background: #f5f5f0; border-radius: 8px; padding: 10px 14px; }
+.ctrl-lbl { font-size: 12px; color: #888780; margin-bottom: 5px; }
+.ctrl-row { display: flex; align-items: center; gap: 8px; }
+.ctrl-row input[type=range] { flex: 1; height: 4px; border-radius: 2px; outline: none; border: none; cursor: pointer; -webkit-appearance: none; appearance: none; background: #d3d1c7; }
+#sliderA::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #185FA5; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.2); cursor: pointer; }
+#sliderB::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #0F6E56; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.2); cursor: pointer; }
+.ctrl-val { font-size: 14px; font-weight: 500; min-width: 46px; text-align: right; }
+#valA { color: #185FA5; }
+#valB { color: #0F6E56; }
+.scene { background: #f5f5f0; border-radius: 12px; padding: 16px 12px 14px; }
+.scene-hint { text-align: center; font-size: 12px; color: #888780; margin-bottom: 14px; }
+.buildings { display: flex; gap: 24px; align-items: flex-end; justify-content: center; }
+.bcol { display: flex; flex-direction: column; align-items: center; }
+.bldg-ratio { font-size: 18px; font-weight: 500; margin-bottom: 6px; }
+.overflow-dots { font-size: 11px; color: #b4b2a9; margin-bottom: 3px; }
+.floor-stack { display: flex; flex-direction: column-reverse; gap: 3px; }
+.floor { height: 18px; border-radius: 3px; width: 80px; }
+.land-cap { height: 7px; width: 94px; border-radius: 0 0 4px 4px; opacity: 0.15; }
+.bldg-floors { font-size: 13px; font-weight: 500; margin-top: 6px; }
+.bldg-area { font-size: 11px; color: #888780; margin-top: 2px; }
+.mid-div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 30px; gap: 4px; }
+.mid-txt { font-size: 11px; color: #b4b2a9; }
+.mid-line { width: 0.5px; height: 40px; background: #d3d1c7; }
+.badge { text-align: center; margin-top: 12px; }
+.badge span { display: inline-block; font-size: 12px; color: #5f5e5a; background: #fff; border: 0.5px solid #d3d1c7; border-radius: 8px; padding: 5px 14px; }
+.ca { color: #185FA5; font-weight: 500; }
+.cb { color: #0F6E56; font-weight: 500; }
+.cv { color: #1a1a18; font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="widget">
+  <div class="w-title">용적률 비교</div>
+  <div class="w-sub">같은 100㎡ 땅 위에서 용적률이 달라지면 건물이 얼마나 달라질까요?</div>
+  <div class="controls">
+    <div class="ctrl-half">
+      <div class="ctrl-lbl">건물 A 용적률</div>
+      <div class="ctrl-row">
+        <input type="range" id="sliderA" min="100" max="1500" step="100" value="200">
+        <span class="ctrl-val" id="valA">200%</span>
+      </div>
+    </div>
+    <div class="ctrl-half">
+      <div class="ctrl-lbl">건물 B 용적률</div>
+      <div class="ctrl-row">
+        <input type="range" id="sliderB" min="100" max="1500" step="100" value="500">
+        <span class="ctrl-val" id="valB">500%</span>
+      </div>
+    </div>
+  </div>
+  <div class="scene">
+    <div class="scene-hint">같은 땅(100㎡)에 용적률만 다르면</div>
+    <div class="buildings" id="scene"></div>
+    <div class="badge" id="badge"></div>
+  </div>
+</div>
+<script>
+const MAX_V = 14;
+const cA = '#185FA5', cAL = '#B5D4F4';
+const cB = '#0F6E56', cBL = '#9FE1CB';
+
+function buildCol(ratio, color, colorL, label) {
+  const floors = Math.round(ratio / 100);
+  const vis = Math.min(floors, MAX_V);
+  const col = document.createElement('div');
+  col.className = 'bcol';
+  const rEl = document.createElement('div');
+  rEl.className = 'bldg-ratio';
+  rEl.style.color = color;
+  rEl.textContent = label + '  ' + ratio + '%';
+  col.appendChild(rEl);
+  if (floors > MAX_V) {
+    const d = document.createElement('div');
+    d.className = 'overflow-dots';
+    d.textContent = '···';
+    col.appendChild(d);
+  }
+  const stack = document.createElement('div');
+  stack.className = 'floor-stack';
+  stack.style.minHeight = (MAX_V * 21) + 'px';
+  stack.style.justifyContent = 'flex-start';
+  for (let i = 0; i < vis; i++) {
+    const f = document.createElement('div');
+    f.className = 'floor';
+    f.style.background = i % 2 === 0 ? color : colorL;
+    f.style.opacity = 0.65 + 0.35 * (i / Math.max(vis - 1, 1));
+    if (i === vis - 1) f.style.borderRadius = '5px 5px 2px 2px';
+    stack.appendChild(f);
+  }
+  col.appendChild(stack);
+  const cap = document.createElement('div');
+  cap.className = 'land-cap';
+  cap.style.background = color;
+  col.appendChild(cap);
+  const fl = document.createElement('div');
+  fl.className = 'bldg-floors';
+  fl.style.color = color;
+  fl.textContent = '약 ' + floors + '층 규모';
+  col.appendChild(fl);
+  const ar = document.createElement('div');
+  ar.className = 'bldg-area';
+  ar.textContent = '연면적 ' + (ratio).toLocaleString() + '㎡';
+  col.appendChild(ar);
+  return col;
+}
+
+function update() {
+  const a = parseInt(document.getElementById('sliderA').value);
+  const b = parseInt(document.getElementById('sliderB').value);
+  document.getElementById('valA').textContent = a + '%';
+  document.getElementById('valB').textContent = b + '%';
+  const scene = document.getElementById('scene');
+  scene.innerHTML = '';
+  scene.appendChild(buildCol(a, cA, cAL, 'A'));
+  const mid = document.createElement('div');
+  mid.className = 'mid-div';
+  mid.innerHTML = '<span class="mid-txt">대지</span><span class="mid-txt" style="font-weight:500;color:#1a1a18">100㎡</span><div class="mid-line"></div><span class="mid-txt">동일</span>';
+  scene.appendChild(mid);
+  scene.appendChild(buildCol(b, cB, cBL, 'B'));
+  const mult = Math.round(b / a * 10) / 10;
+  document.getElementById('badge').innerHTML =
+    `<span><span class="ca">A</span> 대비 <span class="cb">B</span>는 <span class="cv">${mult}배</span> 더 크게 지을 수 있어요</span>`;
+}
+
+document.getElementById('sliderA').addEventListener('input', update);
+document.getElementById('sliderB').addEventListener('input', update);
+update();
+</script>
+</body>
+</html>
